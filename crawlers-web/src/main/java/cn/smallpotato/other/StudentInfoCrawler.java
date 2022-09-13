@@ -1,5 +1,7 @@
 package cn.smallpotato.other;
 
+import cn.smallpotato.output.FileSink;
+import cn.smallpotato.output.Sink;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -11,12 +13,9 @@ import org.openqa.selenium.support.ui.Select;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
@@ -47,19 +46,25 @@ public class StudentInfoCrawler {
             this.switchToSearchPage(driver);
             Select select = new Select(driver.findElement(new By.ByCssSelector("#DropDownList_班别")));
             List<WebElement> options = select.getOptions();
-            ConcurrentLinkedQueue<String> queue = options.stream()
+            ConcurrentLinkedQueue<String> classNameQueue = options.stream()
                     .map(WebElement::getText).filter(val -> val.contains("2021"))
                     .distinct()
                     .sorted()
                     .collect(Collectors.toCollection(ConcurrentLinkedQueue::new));
-            logger.info("需要爬取的班级总数[{}]", queue.size());
+            logger.info("需要爬取的班级总数[{}]", classNameQueue.size());
             driver.quit();
             int threads = 5;
+            ConcurrentLinkedQueue<StudentInfo> queue = new ConcurrentLinkedQueue<>();
             CountDownLatch countDownLatch = new CountDownLatch(threads);
+            CountDownLatch writeLatch = new CountDownLatch(1);
             for (int i = 0; i < threads; i++) {
-                executor.execute(new StudentInfoParser(queue, countDownLatch, url));
+                executor.execute(new StudentInfoDownloader(classNameQueue, queue, countDownLatch, url));
             }
+            StudentInfoWriter writer = new StudentInfoWriter(queue, writeLatch, "D:\\student.txt");
+            executor.execute(writer);
             countDownLatch.await();
+            writer.setEnd(true);
+            writeLatch.await();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -89,14 +94,51 @@ public class StudentInfoCrawler {
         return new ChromeDriver(chromeOptions);
     }
 
-    class StudentInfoParser implements Runnable {
+    static class StudentInfoWriter implements Runnable {
 
-        private final ConcurrentLinkedQueue<String> queue;
+        private final ConcurrentLinkedQueue<StudentInfo> queue;
+        private final CountDownLatch countDownLatch;
+        private final Sink<StudentInfo> sink;
+        private volatile boolean isEnd;
+
+        public StudentInfoWriter(ConcurrentLinkedQueue<StudentInfo> queue, CountDownLatch countDownLatch, String filePath) {
+            this.queue = queue;
+            this.countDownLatch = countDownLatch;
+            this.sink = new FileSink<>(filePath);
+            sink.init();
+        }
+
+        @Override
+        public void run() {
+            try {
+                while (!isEnd || !queue.isEmpty()) {
+                    Optional.ofNullable(queue.poll()).ifPresent(sink::process);
+                }
+                logger.info("学生信息写入完成！");
+            } finally {
+                this.sink.close();
+                countDownLatch.countDown();
+            }
+        }
+
+        public void setEnd(boolean end) {
+            isEnd = end;
+        }
+    }
+
+    class StudentInfoDownloader implements Runnable {
+
+        private final ConcurrentLinkedQueue<String> classNameQueue;
+        private final ConcurrentLinkedQueue<StudentInfo> queue;
         private final CountDownLatch countDownLatch;
         private final WebDriver driver;
         private final String loginUrl;
 
-        public StudentInfoParser(ConcurrentLinkedQueue<String> queue, CountDownLatch countDownLatch, String url) {
+        public StudentInfoDownloader(ConcurrentLinkedQueue<String> classNameQueue,
+                                     ConcurrentLinkedQueue<StudentInfo> queue,
+                                     CountDownLatch countDownLatch,
+                                     String url) {
+            this.classNameQueue = classNameQueue;
             this.queue = queue;
             this.countDownLatch = countDownLatch;
             this.driver = initDriver();
@@ -108,9 +150,9 @@ public class StudentInfoCrawler {
             try {
                 login(driver, loginUrl);
                 switchToSearchPage(driver);
-                while (!queue.isEmpty()) {
-                    String className = queue.poll();
-                    logger.info("开始爬取班级[{}], 剩余[{}]", className, queue.size());
+                while (!classNameQueue.isEmpty()) {
+                    String className = classNameQueue.poll();
+                    logger.info("开始爬取班级[{}], 剩余[{}]", className, classNameQueue.size());
                     try {
                         driver.findElement(new By.ByXPath("//*[@id=\"DropDownList_班别\"]/option[@value=\"" + className + "\"]")).click();
                         Thread.sleep(1000);
@@ -120,12 +162,12 @@ public class StudentInfoCrawler {
                         driver.findElement(new By.ByCssSelector("#lin_b_下一页")).click();
                         Thread.sleep(2000);
                         processTable(infos);
-                        writeToFile(infos, "D:\\" + Thread.currentThread().getName() + ".txt", className);
-                        logger.info("班级[{}]学生数据写入完毕", className);
+                        queue.addAll(infos);
+                        logger.info("班级[{}]学生数据写入输出队列", className);
                         switchWindowOne();
-                    } catch (InterruptedException e) {
-                        logger.warn("班级[{}]爬取失败，重新添加到队列", className);
-                        queue.offer(className);
+                    } catch (Exception e) {
+                        logger.warn("班级[{}]爬取失败，重新添加到任务队列", className);
+                        classNameQueue.offer(className);
                     }
                 }
             } catch (InterruptedException e) {
@@ -134,30 +176,6 @@ public class StudentInfoCrawler {
                 countDownLatch.countDown();
             }
         }
-
-        private void writeToFile(List<StudentInfo> studentInfos, String fileName, String className) {
-            File file = new File(fileName);
-            BufferedWriter writer = null;
-            try {
-                writer = new BufferedWriter(new FileWriter(file, true));
-                for (StudentInfo studentInfo : studentInfos) {
-                    writer.write(studentInfo.name + "," + studentInfo.phone + "," + studentInfo.className);
-                    writer.newLine();
-                }
-            } catch (IOException e) {
-                logger.warn("写数据到班级[{}]错误", className);
-            } finally {
-                try {
-                    if (writer != null) {
-                        writer.flush();
-                        writer.close();
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-
 
         private void switchWindowOne() {
             driver.switchTo().window(new ArrayList<>(driver.getWindowHandles()).get(0));
