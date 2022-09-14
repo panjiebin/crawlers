@@ -22,6 +22,8 @@ public class FileSink<T> implements Sink<T> {
     private final boolean append;
     private BufferedWriter writer;
     private final Function<T, String> converter;
+    private long cnt = 0;
+    private static final int LOG_CNT = 100;
 
     public FileSink(String filePath) {
         this(filePath, true, new ReflectConverter<>());
@@ -47,6 +49,13 @@ public class FileSink<T> implements Sink<T> {
         try {
             String line = converter.apply(t);
             writer.write(line);
+            cnt++;
+            if (cnt % LOG_CNT == 0) {
+                writer.flush();
+                if (logger.isInfoEnabled()) {
+                    logger.info("写入[{}]条数据，总共写入[{}]条数据", LOG_CNT, cnt);
+                }
+            }
             writer.newLine();
         } catch (IOException e) {
             if (logger.isWarnEnabled()) {

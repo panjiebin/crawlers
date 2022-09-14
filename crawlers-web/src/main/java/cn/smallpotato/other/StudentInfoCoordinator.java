@@ -15,7 +15,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
@@ -23,22 +22,21 @@ import java.util.stream.Collectors;
 /**
  * @author panjb
  */
-public class StudentInfoCrawler {
+public class StudentInfoCoordinator {
 
-    private final static Logger logger = LoggerFactory.getLogger(StudentInfoCrawler.class);
+    private final static Logger logger = LoggerFactory.getLogger(StudentInfoCoordinator.class);
 
-    private final ExecutorService executor = new ThreadPoolExecutor(5,
+    private final ExecutorService executor = new ThreadPoolExecutor(6,
             10,
-            10,
+            0,
             TimeUnit.MINUTES, new LinkedBlockingQueue<>(),
             new ThreadFactoryBuilder().setNameFormat("crawler-thread-%d").build());
 
     public static void main(String[] args) {
-        StudentInfoCrawler crawler = new StudentInfoCrawler();
-        crawler.crawling();
+        new StudentInfoCoordinator().start();
     }
 
-    public void crawling() {
+    public void start() {
         String url = "http://crp.hbgt.com.cn/oa/login.aspx";
         try {
             RemoteWebDriver driver = this.initDriver();
@@ -46,35 +44,33 @@ public class StudentInfoCrawler {
             this.switchToSearchPage(driver);
             Select select = new Select(driver.findElement(new By.ByCssSelector("#DropDownList_班别")));
             List<WebElement> options = select.getOptions();
-            ConcurrentLinkedQueue<String> classNameQueue = options.stream()
+            BlockingQueue<String> classNameQueue = options.stream()
                     .map(WebElement::getText).filter(val -> val.contains("2021"))
                     .distinct()
                     .sorted()
-                    .collect(Collectors.toCollection(ConcurrentLinkedQueue::new));
+                    .collect(Collectors.toCollection(LinkedBlockingQueue::new));
             logger.info("需要爬取的班级总数[{}]", classNameQueue.size());
             driver.quit();
             int threads = 5;
-            ConcurrentLinkedQueue<StudentInfo> queue = new ConcurrentLinkedQueue<>();
+            BlockingQueue<Element> queue = new LinkedBlockingQueue<>();
             CountDownLatch countDownLatch = new CountDownLatch(threads);
-            CountDownLatch writeLatch = new CountDownLatch(1);
             for (int i = 0; i < threads; i++) {
-                executor.execute(new StudentInfoDownloader(classNameQueue, queue, countDownLatch, url));
+                executor.execute(new Crawler(classNameQueue, queue, countDownLatch, url));
             }
-            StudentInfoWriter writer = new StudentInfoWriter(queue, writeLatch, "D:\\student.txt");
-            executor.execute(writer);
+            executor.execute(new Writer(queue, "D:\\student.txt"));
+            executor.shutdown();
             countDownLatch.await();
-            writer.setEnd(true);
-            writeLatch.await();
+            logger.info("学生信息爬取完毕！");
+            queue.put(Element.POISON_PILL);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        logger.info("学生信息爬取完毕");
     }
 
     private void login(WebDriver driver, String url) throws InterruptedException {
         driver.get(url);
-        String card = "90309253";
-        String password = "19941217";
+        String card = "";
+        String password = "";
         driver.findElement(new By.ByCssSelector("#txt_卡号")).sendKeys(card);
         driver.findElement(new By.ByCssSelector("#txt_密码")).sendKeys(password);
         driver.findElement(new By.ByCssSelector("#Button_登陆")).click();
@@ -94,16 +90,13 @@ public class StudentInfoCrawler {
         return new ChromeDriver(chromeOptions);
     }
 
-    static class StudentInfoWriter implements Runnable {
+    static class Writer implements Runnable {
 
-        private final ConcurrentLinkedQueue<StudentInfo> queue;
-        private final CountDownLatch countDownLatch;
+        private final BlockingQueue<Element> queue;
         private final Sink<StudentInfo> sink;
-        private volatile boolean isEnd;
 
-        public StudentInfoWriter(ConcurrentLinkedQueue<StudentInfo> queue, CountDownLatch countDownLatch, String filePath) {
+        public Writer(BlockingQueue<Element> queue, String filePath) {
             this.queue = queue;
-            this.countDownLatch = countDownLatch;
             this.sink = new FileSink<>(filePath);
             sink.init();
         }
@@ -111,33 +104,35 @@ public class StudentInfoCrawler {
         @Override
         public void run() {
             try {
-                while (!isEnd || !queue.isEmpty()) {
-                    Optional.ofNullable(queue.poll()).ifPresent(sink::process);
+                while (true) {
+                    Element element = queue.take();
+                    if (element == Element.POISON_PILL) {
+                        logger.info("学生信息写入完成！");
+                        break;
+                    } else {
+                        sink.process((StudentInfo) element);
+                    }
                 }
-                logger.info("学生信息写入完成！");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             } finally {
                 this.sink.close();
-                countDownLatch.countDown();
             }
-        }
-
-        public void setEnd(boolean end) {
-            isEnd = end;
         }
     }
 
-    class StudentInfoDownloader implements Runnable {
+    class Crawler implements Runnable {
 
-        private final ConcurrentLinkedQueue<String> classNameQueue;
-        private final ConcurrentLinkedQueue<StudentInfo> queue;
+        private final BlockingQueue<String> classNameQueue;
+        private final BlockingQueue<Element> queue;
         private final CountDownLatch countDownLatch;
         private final WebDriver driver;
         private final String loginUrl;
 
-        public StudentInfoDownloader(ConcurrentLinkedQueue<String> classNameQueue,
-                                     ConcurrentLinkedQueue<StudentInfo> queue,
-                                     CountDownLatch countDownLatch,
-                                     String url) {
+        public Crawler(BlockingQueue<String> classNameQueue,
+                       BlockingQueue<Element> queue,
+                       CountDownLatch countDownLatch,
+                       String url) {
             this.classNameQueue = classNameQueue;
             this.queue = queue;
             this.countDownLatch = countDownLatch;
@@ -163,17 +158,20 @@ public class StudentInfoCrawler {
                         Thread.sleep(2000);
                         processTable(infos);
                         queue.addAll(infos);
-                        logger.info("班级[{}]学生数据写入输出队列", className);
+                        logger.info("班级[{}]学生数据[{}]写入输出队列", className, infos.size());
                         switchWindowOne();
                     } catch (Exception e) {
                         logger.warn("班级[{}]爬取失败，重新添加到任务队列", className);
-                        classNameQueue.offer(className);
+                        classNameQueue.put(className);
+                        Thread.sleep(1000);
                     }
                 }
             } catch (InterruptedException e) {
                 logger.error("登录查询页失败", e);
             } finally {
+                driver.quit();
                 countDownLatch.countDown();
+                logger.info("学生信息爬取器[{}]爬取结束", Thread.currentThread().getName());
             }
         }
 
@@ -216,7 +214,7 @@ public class StudentInfoCrawler {
         }
     }
 
-    static class StudentInfo {
+    static class StudentInfo implements Element {
 
         private String name;
         private String phone;
@@ -226,5 +224,9 @@ public class StudentInfoCrawler {
             this.phone = phone;
             this.className = className;
         }
+    }
+
+    interface Element {
+        Element POISON_PILL = new Element() {};
     }
 }
