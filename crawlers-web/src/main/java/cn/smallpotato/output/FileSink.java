@@ -77,6 +77,9 @@ public class FileSink<T> implements Sink<T> {
             try {
                 writer.flush();
                 writer.close();
+                if (logger.isInfoEnabled()) {
+                    logger.info("总共写入[{}]条数据", cnt);
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
