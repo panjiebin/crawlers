@@ -133,7 +133,7 @@ public class CorporationCoordinator {
             params.put("licstatus", "active");
             params.put("ratype", "9");
             params.put("roleType", "corporation");
-            params.put("page", "9");
+            params.put("page", "1");
             params.put("start", "0");
             params.put("nameStartLetter", "C");
             params.put("limit", "230");
