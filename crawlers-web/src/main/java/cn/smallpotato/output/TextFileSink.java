@@ -14,29 +14,21 @@ import java.util.stream.Collectors;
 /**
  * @author panjb
  */
-public class FileSink<T> implements Sink<T> {
+public class TextFileSink<T> implements Sink<T> {
 
-    private final static Logger logger = LoggerFactory.getLogger(FileSink.class);
+    private final static Logger logger = LoggerFactory.getLogger(TextFileSink.class);
 
-    private final String filePath;
-    private final boolean append;
-    private BufferedWriter writer;
-    private final Function<T, String> converter;
+    private final BufferedWriter writer;
+    private final Function<T, String> stringConverter;
     private long cnt = 0;
     private static final int LOG_CNT = 100;
 
-    public FileSink(String filePath) {
-        this(filePath, true, new ReflectConverter<>());
+    public TextFileSink(String filePath) {
+        this(filePath, false, new ReflectConverter<>());
     }
 
-    public FileSink(String filePath, boolean append, Function<T, String> converter) {
-        this.filePath = filePath;
-        this.append = append;
-        this.converter = converter;
-    }
-
-    @Override
-    public void init() {
+    public TextFileSink(String filePath, boolean append, Function<T, String> stringConverter) {
+        this.stringConverter = stringConverter;
         try {
             this.writer = new BufferedWriter(new FileWriter(filePath, append));
         } catch (IOException e) {
@@ -47,7 +39,7 @@ public class FileSink<T> implements Sink<T> {
     @Override
     public void process(T t) {
         try {
-            String line = converter.apply(t);
+            String line = stringConverter.apply(t);
             writer.write(line);
             cnt++;
             if (cnt % LOG_CNT == 0) {

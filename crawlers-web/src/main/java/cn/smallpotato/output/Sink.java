@@ -7,8 +7,6 @@ import java.io.Serializable;
  */
 public interface Sink<T> extends Serializable {
 
-    void init();
-
     void process(T t);
 
     void process(Iterable<T> iterable);

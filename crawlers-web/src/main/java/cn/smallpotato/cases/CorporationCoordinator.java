@@ -1,131 +1,74 @@
 package cn.smallpotato.cases;
 
-import cn.smallpotato.output.FileSink;
-import cn.smallpotato.output.Sink;
-import cn.smallpotato.utils.HttpUtils;
+import cn.smallpotato.common.http.HttpHelper;
+import cn.smallpotato.common.model.*;
+import cn.smallpotato.output.TextFileSink;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.assertj.core.util.Maps;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * @author panjb
  */
-public class CorporationCoordinator {
-
-    private final static Logger logger = LoggerFactory.getLogger(CorporationCoordinator.class);
-
-    private final ExecutorService executor = new ThreadPoolExecutor(6,
-            10,
-            0,
-            TimeUnit.MINUTES, new LinkedBlockingQueue<>(),
-            new ThreadFactoryBuilder().setNameFormat("crawler-%d").build());
+public class CorporationCoordinator extends Coordinator<String, Element.StringElement> {
 
     public static void main(String[] args) {
         new CorporationCoordinator().start();
     }
-    public void start() {
-        BlockingQueue<String> prefixQueue = new LinkedBlockingQueue<>(getAllPrefix());
-        int threads = 5;
-        BlockingQueue<String> queue = new LinkedBlockingQueue<>();
-        CountDownLatch countDownLatch = new CountDownLatch(threads);
-        for (int i = 0; i < threads; i++) {
-            executor.execute(new Crawler(prefixQueue, countDownLatch, queue));
-        }
-        executor.execute(new Writer(queue, "D:\\Corporation.txt"));
-        executor.shutdown();
-        try {
-            countDownLatch.await();
-            logger.info("公司名称爬取完毕！");
-            queue.put("-1");
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+
+    @Override
+    protected BlockingQueue<String> getCrawlerTasks() {
+        return new LinkedBlockingQueue<>(getAllPrefix());
     }
 
-    private static class Writer implements Runnable {
-
-        private final BlockingQueue<String> queue;
-        private final Sink<String> sink;
-
-        public Writer(BlockingQueue<String> queue, String filePath) {
-            this.queue = queue;
-            this.sink = new FileSink<>(filePath, false, s -> s);
-            sink.init();
-        }
-
-        @Override
-        public void run() {
-            try {
-                while (true) {
-                    String s = queue.take();
-                    if ("-1".equals(s)) {
-                        logger.info("数据爬取完成");
-                        break;
-                    } else {
-                        sink.process(s);
-                    }
-                }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            } finally {
-                this.sink.close();
-            }
-        }
+    @Override
+    protected Writer<Element.StringElement> createWriter(BlockingQueue<Element> queue) {
+        return new FileWriter<>(queue, new TextFileSink<>("D:\\Corporation.csv"));
     }
 
-    private static class Crawler implements Runnable {
+    @Override
+    protected Crawler createCrawler(BlockingQueue<String> taskQueue, BlockingQueue<Element> elementQueue, CountDownLatch countDownLatch) {
+        return new CorporationCrawler(taskQueue, elementQueue, countDownLatch);
+    }
+
+    private static class CorporationCrawler extends AbstractWithInputCrawler<String, Element.StringElement> {
 
         private final ObjectMapper objectMapper = new ObjectMapper();
-        private final CountDownLatch countDownLatch;
-        private final BlockingQueue<String> prefixQueue;
-        private final BlockingQueue<String> queue;
 
-        public Crawler(BlockingQueue<String> prefixQueue, CountDownLatch countDownLatch, BlockingQueue<String> queue) {
-            this.prefixQueue = prefixQueue;
-            this.countDownLatch = countDownLatch;
-            this.queue = queue;
+        private final Map<String, String> headers = Maps.newHashMap("Content-type", "application/x-www-form-urlencoded; charset=utf-8");
+        private final Map<String, String> params;
+
+        public CorporationCrawler(BlockingQueue<String> taskQueue, BlockingQueue<Element> elementQueue, CountDownLatch countDownLatch) {
+            super(taskQueue, elementQueue, countDownLatch);
+            this.params = getParams();
         }
 
         @Override
-        public void run() {
+        public Iterable<Element.StringElement> crawling(String prefix) {
             String url = "https://apps.sfc.hk/publicregWeb/searchByRaJson?_dc=1663234581536";
-            Map<String, String> headers = Maps.newHashMap("Content-type", "application/x-www-form-urlencoded; charset=utf-8");
-            Map<String, String> params = getParams();
-            try {
-                while (!prefixQueue.isEmpty()) {
-                    String prefix = prefixQueue.take();
-                    params.put("nameStartLetter", prefix);
-                    Optional.of(HttpUtils.doPost(url, headers, params, String.class))
-                            .ifPresent(content -> {
-                                int cnt = 0;
-                                try {
-                                    JsonNode jsonNode = objectMapper.readTree(content);
-                                    JsonNode items = jsonNode.get("items");
-                                    if (items.isArray()) {
-                                        for (JsonNode item : items) {
-                                            queue.put(item.get("name").asText());
-                                            cnt++;
-                                        }
-                                    }
-                                    logger.info("prefix[{}], items[{}], total count[{}]", prefix, cnt, jsonNode.get("totalCount").asInt());
-                                } catch (JsonProcessingException | InterruptedException e) {
-                                    throw new RuntimeException(e);
+            params.put("nameStartLetter", prefix);
+            List<Element.StringElement> list = new ArrayList<>();
+            Optional.of(HttpHelper.doPost(url, headers, params, String.class))
+                    .ifPresent(content -> {
+                        try {
+                            JsonNode jsonNode = objectMapper.readTree(content);
+                            JsonNode items = jsonNode.get("items");
+                            if (items.isArray()) {
+                                for (JsonNode item : items) {
+                                    list.add(new Element.StringElement(item.get("name").asText()));
                                 }
-                            });
-                }
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            } finally {
-                countDownLatch.countDown();
-                logger.info("downloader[{}] stop", Thread.currentThread().getName());
-            }
+                            }
+                        } catch (JsonProcessingException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+            return list;
         }
 
         private Map<String, String> getParams() {
@@ -139,6 +82,7 @@ public class CorporationCoordinator {
             params.put("limit", "230");
             return params;
         }
+
     }
 
     private List<String> getAllPrefix() {

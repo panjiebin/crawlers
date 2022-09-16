@@ -1,7 +1,6 @@
-package cn.smallpotato.utils;
+package cn.smallpotato.common.http;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.http.HttpEntity;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -22,9 +21,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * @author small potato
+ * @author panjb
  */
-public class HttpUtils {
+public class HttpHelper {
 
     private static final int STATUS_CODE_OK = 200;
     private static final PoolingHttpClientConnectionManager CM;
@@ -36,6 +35,9 @@ public class HttpUtils {
         CM.setMaxTotal(100);
         // 设置每个主机的最大连接数
         CM.setDefaultMaxPerRoute(10);
+    }
+
+    private HttpHelper() {
     }
 
     public static <T> T doGet(String url, Class<T> type) {

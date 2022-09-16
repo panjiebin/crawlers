@@ -1,8 +1,7 @@
 package cn.smallpotato.cases;
 
-import cn.smallpotato.output.FileSink;
-import cn.smallpotato.output.Sink;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import cn.smallpotato.common.model.*;
+import cn.smallpotato.output.TextFileSink;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -16,58 +15,60 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
 /**
  * @author panjb
  */
-public class StudentInfoCoordinator {
+public class StudentInfoCoordinator extends Coordinator<String, StudentInfoCoordinator.StudentInfo> {
 
     private final static Logger logger = LoggerFactory.getLogger(StudentInfoCoordinator.class);
 
-    private final ExecutorService executor = new ThreadPoolExecutor(6,
-            10,
-            0,
-            TimeUnit.MINUTES, new LinkedBlockingQueue<>(),
-            new ThreadFactoryBuilder().setNameFormat("crawler-thread-%d").build());
+    private final String url = "http://crp.hbgt.com.cn/oa/login.aspx";
 
     public static void main(String[] args) {
         new StudentInfoCoordinator().start();
     }
 
-    public void start() {
-        String url = "http://crp.hbgt.com.cn/oa/login.aspx";
+    @Override
+    protected BlockingQueue<String> getCrawlerTasks() {
+        WebDriver driver = this.initDriver();
+        login(driver, url);
+        Select select = new Select(driver.findElement(new By.ByCssSelector("#DropDownList_班别")));
+        List<WebElement> options = select.getOptions();
+        BlockingQueue<String> classNameQueue = options.stream()
+                .map(WebElement::getText).filter(val -> val.contains("2021"))
+                .distinct()
+                .sorted()
+                .collect(Collectors.toCollection(LinkedBlockingQueue::new));
+        logger.info("需要爬取的班级总数[{}]", classNameQueue.size());
+        driver.quit();
+        return classNameQueue;
+    }
+
+    @Override
+    protected Writer<StudentInfo> createWriter(BlockingQueue<Element> queue) {
+        return new FileWriter<>(queue,new TextFileSink<>("D:\\student.csv"));
+    }
+
+    @Override
+    protected cn.smallpotato.common.model.Crawler createCrawler(BlockingQueue<String> taskQueue, BlockingQueue<Element> elementQueue, CountDownLatch countDownLatch) {
+        return new StudentCrawler(taskQueue, elementQueue, countDownLatch, url);
+    }
+
+    private void login(WebDriver driver, String url) {
         try {
-            RemoteWebDriver driver = this.initDriver();
-            this.login(driver, url);
+            this.doLogin(driver, url);
             this.switchToSearchPage(driver);
-            Select select = new Select(driver.findElement(new By.ByCssSelector("#DropDownList_班别")));
-            List<WebElement> options = select.getOptions();
-            BlockingQueue<String> classNameQueue = options.stream()
-                    .map(WebElement::getText).filter(val -> val.contains("2021"))
-                    .distinct()
-                    .sorted()
-                    .collect(Collectors.toCollection(LinkedBlockingQueue::new));
-            logger.info("需要爬取的班级总数[{}]", classNameQueue.size());
-            driver.quit();
-            int threads = 5;
-            BlockingQueue<Element> queue = new LinkedBlockingQueue<>();
-            CountDownLatch countDownLatch = new CountDownLatch(threads);
-            for (int i = 0; i < threads; i++) {
-                executor.execute(new Crawler(classNameQueue, queue, countDownLatch, url));
-            }
-            executor.execute(new Writer(queue, "D:\\student.txt"));
-            executor.shutdown();
-            countDownLatch.await();
-            logger.info("学生信息爬取完毕！");
-            queue.put(Element.POISON_PILL);
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
     }
 
-    private void login(WebDriver driver, String url) throws InterruptedException {
+    private void doLogin(WebDriver driver, String url) throws InterruptedException {
         driver.get(url);
         String card = "";
         String password = "";
@@ -90,90 +91,40 @@ public class StudentInfoCoordinator {
         return new ChromeDriver(chromeOptions);
     }
 
-    static class Writer implements Runnable {
+    class StudentCrawler extends AbstractWithInputCrawler<String, StudentInfo> {
 
-        private final BlockingQueue<Element> queue;
-        private final Sink<StudentInfo> sink;
-
-        public Writer(BlockingQueue<Element> queue, String filePath) {
-            this.queue = queue;
-            this.sink = new FileSink<>(filePath);
-            sink.init();
-        }
-
-        @Override
-        public void run() {
-            try {
-                while (true) {
-                    Element element = queue.take();
-                    if (element == Element.POISON_PILL) {
-                        logger.info("学生信息写入完成！");
-                        break;
-                    } else {
-                        sink.process((StudentInfo) element);
-                    }
-                }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            } finally {
-                this.sink.close();
-            }
-        }
-    }
-
-    class Crawler implements Runnable {
-
-        private final BlockingQueue<String> classNameQueue;
-        private final BlockingQueue<Element> queue;
-        private final CountDownLatch countDownLatch;
         private final WebDriver driver;
-        private final String loginUrl;
 
-        public Crawler(BlockingQueue<String> classNameQueue,
-                       BlockingQueue<Element> queue,
-                       CountDownLatch countDownLatch,
-                       String url) {
-            this.classNameQueue = classNameQueue;
-            this.queue = queue;
-            this.countDownLatch = countDownLatch;
+        public StudentCrawler(BlockingQueue<String> taskQueue, BlockingQueue<Element> elementQueue, CountDownLatch countDownLatch, String loginUrl) {
+            super(taskQueue, elementQueue, countDownLatch);
             this.driver = initDriver();
-            this.loginUrl = url;
+            login(this.driver, loginUrl);
         }
 
         @Override
-        public void run() {
+        public Iterable<StudentInfo> crawling(String className) {
+            List<StudentInfo> infos = new ArrayList<>();
             try {
-                login(driver, loginUrl);
-                switchToSearchPage(driver);
-                while (!classNameQueue.isEmpty()) {
-                    String className = classNameQueue.poll();
-                    logger.info("开始爬取班级[{}], 剩余[{}]", className, classNameQueue.size());
-                    try {
-                        driver.findElement(new By.ByXPath("//*[@id=\"DropDownList_班别\"]/option[@value=\"" + className + "\"]")).click();
-                        Thread.sleep(1000);
-                        List<StudentInfo> infos = new ArrayList<>();
-                        processTable(infos);
-                        switchWindowOne();
-                        driver.findElement(new By.ByCssSelector("#lin_b_下一页")).click();
-                        Thread.sleep(2000);
-                        processTable(infos);
-                        queue.addAll(infos);
-                        logger.info("班级[{}]学生数据[{}]写入输出队列", className, infos.size());
-                        switchWindowOne();
-                    } catch (Exception e) {
-                        logger.warn("班级[{}]爬取失败，重新添加到任务队列", className);
-                        classNameQueue.put(className);
-                        Thread.sleep(1000);
-                    }
+                driver.findElement(new By.ByXPath("//*[@id=\"DropDownList_班别\"]/option[@value=\"" + className + "\"]")).click();
+                Thread.sleep(1000);
+                processTable(infos);
+                switchWindowOne();
+                driver.findElement(new By.ByCssSelector("#lin_b_下一页")).click();
+                Thread.sleep(2000);
+                processTable(infos);
+                logger.info("班级[{}]学生数据[{}]写入输出队列", className, infos.size());
+                switchWindowOne();
+            } catch (Exception e) {
+                logger.warn("班级[{}]爬取失败，重新添加到任务队列", className);
+                try {
+                    taskQueue.put(className);
+                } catch (InterruptedException ex) {
+                    ex.printStackTrace();
                 }
-            } catch (InterruptedException e) {
-                logger.error("登录查询页失败", e);
-            } finally {
-                driver.quit();
-                countDownLatch.countDown();
-                logger.info("学生信息爬取器[{}]爬取结束", Thread.currentThread().getName());
             }
+            return infos;
         }
+
 
         private void switchWindowOne() {
             driver.switchTo().window(new ArrayList<>(driver.getWindowHandles()).get(0));
@@ -224,9 +175,5 @@ public class StudentInfoCoordinator {
             this.phone = phone;
             this.className = className;
         }
-    }
-
-    interface Element {
-        Element POISON_PILL = new Element() {};
     }
 }
