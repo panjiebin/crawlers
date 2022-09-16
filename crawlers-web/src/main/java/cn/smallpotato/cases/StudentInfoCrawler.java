@@ -101,7 +101,7 @@ public class StudentInfoCrawler extends AbstractCrawler<String, StudentInfoCrawl
         }
 
         @Override
-        public Iterable<StudentInfo> crawling(String className) {
+        public Iterable<StudentInfo> download(String className) {
             List<StudentInfo> infos = new ArrayList<>();
             try {
                 driver.findElement(new By.ByXPath("//*[@id=\"DropDownList_班别\"]/option[@value=\"" + className + "\"]")).click();

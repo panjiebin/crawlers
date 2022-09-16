@@ -41,23 +41,23 @@ public abstract class AbstractDownloader<T, E extends Element> implements Downlo
             while (!isCancel && !taskQueue.isEmpty()) {
                 T task = this.taskQueue.take();
                 int cnt = 0;
-                Iterable<E> elements = this.crawling(task);
+                Iterable<E> elements = this.download(task);
                 for (E element : elements) {
                     cnt++;
                     elementQueue.put(element);
                 }
                 if (logger.isInfoEnabled()) {
-                    logger.info("Task [{}] crawling completed, data[{}]", task, cnt);
+                    logger.info("Task [{}] download completed, data[{}]", task, cnt);
                 }
             }
         } catch (InterruptedException e) {
             if (logger.isErrorEnabled()) {
-                logger.error("Crawler [{}] is running abnormally", Thread.currentThread().getName(), e);
+                logger.error("Downloader [{}] is running abnormally", Thread.currentThread().getName(), e);
             }
         } finally {
             countDownLatch.countDown();
             if (logger.isInfoEnabled()) {
-                logger.info("Crawler [{}] stops crawling data", Thread.currentThread().getName());
+                logger.info("Downloader [{}] stops download data", Thread.currentThread().getName());
             }
         }
     }

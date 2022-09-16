@@ -49,7 +49,7 @@ public class CorporationCrawler extends AbstractCrawler<String, Element.StringEl
         }
 
         @Override
-        public Iterable<Element.StringElement> crawling(String prefix) {
+        public Iterable<Element.StringElement> download(String prefix) {
             String url = "https://apps.sfc.hk/publicregWeb/searchByRaJson?_dc=1663234581536";
             params.put("nameStartLetter", prefix);
             List<Element.StringElement> list = new ArrayList<>();

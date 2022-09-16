@@ -33,7 +33,7 @@ public abstract class AbstractCrawler<T, E extends Element> {
         try {
             countDownLatch.await();
             if (logger.isInfoEnabled()) {
-                logger.info("All crawlers have stopped");
+                logger.info("All downloader have stopped");
             }
             queue.put(Element.POISON_PILL);
         } catch (InterruptedException e) {
