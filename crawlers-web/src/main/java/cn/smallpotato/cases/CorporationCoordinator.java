@@ -2,7 +2,6 @@ package cn.smallpotato.cases;
 
 import cn.smallpotato.common.http.HttpHelper;
 import cn.smallpotato.common.model.*;
-import cn.smallpotato.output.TextFileSink;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,7 +28,7 @@ public class CorporationCoordinator extends Coordinator<String, Element.StringEl
 
     @Override
     protected Writer<Element.StringElement> createWriter(BlockingQueue<Element> queue) {
-        return new FileWriter<>(queue, new TextFileSink<>("D:\\Corporation.csv"));
+        return new TextFileWriter<>(queue, "D:\\Corporation.csv");
     }
 
     @Override
@@ -37,7 +36,7 @@ public class CorporationCoordinator extends Coordinator<String, Element.StringEl
         return new CorporationCrawler(taskQueue, elementQueue, countDownLatch);
     }
 
-    private static class CorporationCrawler extends AbstractWithInputCrawler<String, Element.StringElement> {
+    private static class CorporationCrawler extends AbstractCrawler<String, Element.StringElement> {
 
         private final ObjectMapper objectMapper = new ObjectMapper();
 

@@ -1,7 +1,6 @@
 package cn.smallpotato.cases;
 
 import cn.smallpotato.common.model.*;
-import cn.smallpotato.output.TextFileSink;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -51,7 +50,7 @@ public class StudentInfoCoordinator extends Coordinator<String, StudentInfoCoord
 
     @Override
     protected Writer<StudentInfo> createWriter(BlockingQueue<Element> queue) {
-        return new FileWriter<>(queue,new TextFileSink<>("D:\\student.csv"));
+        return new TextFileWriter<>(queue,"D:\\student.csv");
     }
 
     @Override
@@ -91,7 +90,7 @@ public class StudentInfoCoordinator extends Coordinator<String, StudentInfoCoord
         return new ChromeDriver(chromeOptions);
     }
 
-    class StudentCrawler extends AbstractWithInputCrawler<String, StudentInfo> {
+    class StudentCrawler extends AbstractCrawler<String, StudentInfo> {
 
         private final WebDriver driver;
 

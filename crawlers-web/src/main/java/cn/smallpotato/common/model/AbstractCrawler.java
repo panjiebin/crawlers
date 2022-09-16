@@ -9,20 +9,19 @@ import java.util.concurrent.CountDownLatch;
 /**
  * @author panjb
  */
-public abstract class AbstractWithInputCrawler<IN, OUT extends Element>
-        implements WithInputCrawler<IN, OUT> {
+public abstract class AbstractCrawler<T, E extends Element> implements Crawler<T, E> {
 
-    private final static Logger logger = LoggerFactory.getLogger(AbstractWithInputCrawler.class);
+    private final static Logger logger = LoggerFactory.getLogger(AbstractCrawler.class);
 
     private volatile boolean isCancel;
 
-    protected final BlockingQueue<IN> taskQueue;
+    protected final BlockingQueue<T> taskQueue;
     protected final CountDownLatch countDownLatch;
     protected final BlockingQueue<Element> elementQueue;
 
-    public AbstractWithInputCrawler(BlockingQueue<IN> taskQueue,
-                                    BlockingQueue<Element> elementQueue,
-                                    CountDownLatch countDownLatch) {
+    public AbstractCrawler(BlockingQueue<T> taskQueue,
+                           BlockingQueue<Element> elementQueue,
+                           CountDownLatch countDownLatch) {
         this.taskQueue = taskQueue;
         this.elementQueue = elementQueue;
         this.countDownLatch = countDownLatch;
@@ -40,15 +39,15 @@ public abstract class AbstractWithInputCrawler<IN, OUT extends Element>
     public void run() {
         try {
             while (!isCancel && !taskQueue.isEmpty()) {
-                IN task = this.taskQueue.take();
+                T task = this.taskQueue.take();
                 int cnt = 0;
-                Iterable<OUT> elements = this.crawling(task);
-                for (OUT element : elements) {
+                Iterable<E> elements = this.crawling(task);
+                for (E element : elements) {
                     cnt++;
                     elementQueue.put(element);
                 }
                 if (logger.isInfoEnabled()) {
-                    logger.info("Task [{}] processing completed, data[{}]", task, cnt);
+                    logger.info("Task [{}] crawling completed, data[{}]", task, cnt);
                 }
             }
         } catch (InterruptedException e) {
@@ -58,7 +57,7 @@ public abstract class AbstractWithInputCrawler<IN, OUT extends Element>
         } finally {
             countDownLatch.countDown();
             if (logger.isInfoEnabled()) {
-                logger.info("Crawler [{}] stops consuming", Thread.currentThread().getName());
+                logger.info("Crawler [{}] stops crawling data", Thread.currentThread().getName());
             }
         }
     }

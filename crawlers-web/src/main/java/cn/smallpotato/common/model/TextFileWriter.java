@@ -1,4 +1,4 @@
-package cn.smallpotato.output;
+package cn.smallpotato.common.model;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,26 +8,27 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.*;
+import java.util.concurrent.BlockingQueue;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
  * @author panjb
  */
-public class TextFileSink<T> implements Sink<T> {
+public class TextFileWriter<E extends Element> extends AbstractWriter<E> {
 
-    private final static Logger logger = LoggerFactory.getLogger(TextFileSink.class);
-
+    private final static Logger logger = LoggerFactory.getLogger(TextFileWriter.class);
     private final BufferedWriter writer;
-    private final Function<T, String> stringConverter;
+    private final Function<E, String> stringConverter;
     private long cnt = 0;
-    private static final int LOG_CNT = 100;
+    private static final int LOG_BATCH = 1000;
 
-    public TextFileSink(String filePath) {
-        this(filePath, false, new ReflectConverter<>());
+    public TextFileWriter(BlockingQueue<Element> queue, String filePath) {
+        this(queue, filePath, false, new ReflectConverter<>());
     }
 
-    public TextFileSink(String filePath, boolean append, Function<T, String> stringConverter) {
+    public TextFileWriter(BlockingQueue<Element> queue, String filePath, boolean append, Function<E, String> stringConverter) {
+        super(queue);
         this.stringConverter = stringConverter;
         try {
             this.writer = new BufferedWriter(new FileWriter(filePath, append));
@@ -37,29 +38,22 @@ public class TextFileSink<T> implements Sink<T> {
     }
 
     @Override
-    public void process(T t) {
+    public void write(E element) {
         try {
-            String line = stringConverter.apply(t);
+            String line = stringConverter.apply(element);
             writer.write(line);
             cnt++;
-            if (cnt % LOG_CNT == 0) {
+            if (cnt % LOG_BATCH == 0) {
                 writer.flush();
                 if (logger.isInfoEnabled()) {
-                    logger.info("写入[{}]条数据，总共写入[{}]条数据", LOG_CNT, cnt);
+                    logger.info("写入[{}]条数据，总共写入[{}]条数据", LOG_BATCH, cnt);
                 }
             }
             writer.newLine();
         } catch (IOException e) {
             if (logger.isWarnEnabled()) {
-                logger.warn("数据写入异常[{}]", t);
+                logger.warn("数据写入异常[{}]", element);
             }
-        }
-    }
-
-    @Override
-    public void process(Iterable<T> iterable) {
-        for (T t : iterable) {
-            this.process(t);
         }
     }
 
