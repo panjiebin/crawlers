@@ -22,14 +22,14 @@ import java.util.stream.Collectors;
 /**
  * @author panjb
  */
-public class StudentInfoCoordinator extends Coordinator<String, StudentInfoCoordinator.StudentInfo> {
+public class StudentInfoCrawler extends AbstractCrawler<String, StudentInfoCrawler.StudentInfo> {
 
-    private final static Logger logger = LoggerFactory.getLogger(StudentInfoCoordinator.class);
+    private final static Logger logger = LoggerFactory.getLogger(StudentInfoCrawler.class);
 
     private final String url = "http://crp.hbgt.com.cn/oa/login.aspx";
 
     public static void main(String[] args) {
-        new StudentInfoCoordinator().start();
+        new StudentInfoCrawler().start();
     }
 
     @Override
@@ -54,8 +54,8 @@ public class StudentInfoCoordinator extends Coordinator<String, StudentInfoCoord
     }
 
     @Override
-    protected cn.smallpotato.common.model.Crawler createCrawler(BlockingQueue<String> taskQueue, BlockingQueue<Element> elementQueue, CountDownLatch countDownLatch) {
-        return new StudentCrawler(taskQueue, elementQueue, countDownLatch, url);
+    protected Downloader<String, StudentInfo> createCrawler(BlockingQueue<String> taskQueue, BlockingQueue<Element> elementQueue, CountDownLatch countDownLatch) {
+        return new StudentDownloader(taskQueue, elementQueue, countDownLatch, url);
     }
 
     private void login(WebDriver driver, String url) {
@@ -90,11 +90,11 @@ public class StudentInfoCoordinator extends Coordinator<String, StudentInfoCoord
         return new ChromeDriver(chromeOptions);
     }
 
-    class StudentCrawler extends AbstractCrawler<String, StudentInfo> {
+    class StudentDownloader extends AbstractDownloader<String, StudentInfo> {
 
         private final WebDriver driver;
 
-        public StudentCrawler(BlockingQueue<String> taskQueue, BlockingQueue<Element> elementQueue, CountDownLatch countDownLatch, String loginUrl) {
+        public StudentDownloader(BlockingQueue<String> taskQueue, BlockingQueue<Element> elementQueue, CountDownLatch countDownLatch, String loginUrl) {
             super(taskQueue, elementQueue, countDownLatch);
             this.driver = initDriver();
             login(this.driver, loginUrl);
