@@ -11,7 +11,7 @@ import us.codecraft.webmagic.Spider;
  * 爬虫定时调度
  * @author panjb
  */
-@Component
+//@Component
 public class CrowdfundingTask {
 
     private final CrowdfundingPipeline crowdfundingPipeline;
@@ -20,7 +20,7 @@ public class CrowdfundingTask {
         this.crowdfundingPipeline = crowdfundingPipeline;
     }
 
-    @Scheduled(initialDelay = 1000, fixedDelay = 3600 * 1000)
+//    @Scheduled(initialDelay = 1000, fixedDelay = 3600 * 1000)
     public void execute() {
         Spider.create(new CrowdfundingPageProcessor())
                 .addUrl("https://zhongchou.modian.com/publishing/top_money/success")
