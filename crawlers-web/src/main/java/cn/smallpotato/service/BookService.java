@@ -1,7 +1,6 @@
 package cn.smallpotato.service;
 
 import cn.smallpotato.entity.Book;
-import cn.smallpotato.entity.Crowdfunding;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 /**
