@@ -1,0 +1,15 @@
+美国|2|https://digitallibrary.un.org/search?ln=zh_CN&c=Speeches&rg=100&cc=Speeches&fct__7=United+States&fct__8=DISARMAMENT--GENERAL+AND+COMPLETE&jrec=1
+中国|1|https://digitallibrary.un.org/search?ln=zh_CN&c=Speeches&rg=100&cc=Speeches&fct__7=China&fct__8=DISARMAMENT--GENERAL+AND+COMPLETE&jrec=1
+印度|1|https://digitallibrary.un.org/search?ln=zh_CN&c=Speeches&rg=100&cc=Speeches&fct__7=India&fct__8=DISARMAMENT--GENERAL+AND+COMPLETE&jrec=1
+英国|1|https://digitallibrary.un.org/search?ln=zh_CN&c=Speeches&rg=100&cc=Speeches&fct__7=United+Kingdom&fct__8=DISARMAMENT--GENERAL+AND+COMPLETE&jrec=1
+俄罗斯|1|https://digitallibrary.un.org/search?ln=zh_CN&c=Speeches&rg=100&cc=Speeches&fct__7=Russian+Federation&fct__8=DISARMAMENT--GENERAL+AND+COMPLETE&jrec=1
+法国|1|https://digitallibrary.un.org/search?ln=zh_CN&c=Speeches&rg=100&cc=Speeches&fct__7=France&fct__8=DISARMAMENT--GENERAL+AND+COMPLETE&jrec=1
+德国|1|https://digitallibrary.un.org/search?ln=zh_CN&c=Speeches&rg=100&cc=Speeches&fct__7=Germany&fct__8=DISARMAMENT--GENERAL+AND+COMPLETE&jrec=1
+沙特|1|https://digitallibrary.un.org/search?ln=zh_CN&c=Speeches&rg=100&cc=Speeches&fct__7=Saudi+Arabia&fct__8=DISARMAMENT--GENERAL+AND+COMPLETE&jrec=1
+日本|1|https://digitallibrary.un.org/search?ln=zh_CN&c=Speeches&rg=100&cc=Speeches&fct__7=Japan&fct__8=DISARMAMENT--GENERAL+AND+COMPLETE&jrec=1
+韩国|1|https://digitallibrary.un.org/search?ln=zh_CN&c=Speeches&rg=100&cc=Speeches&fct__7=Republic%20of%20Korea&fct__8=DISARMAMENT--GENERAL+AND+COMPLETE&jrec=1
+意大利|1|https://digitallibrary.un.org/search?ln=zh_CN&c=Speeches&rg=100&cc=Speeches&fct__7=Italy&fct__8=DISARMAMENT--GENERAL+AND+COMPLETE&jrec=1
+澳大利亚|1|https://digitallibrary.un.org/search?ln=zh_CN&c=Speeches&rg=100&cc=Speeches&fct__7=Australia&fct__8=DISARMAMENT--GENERAL+AND+COMPLETE&jrec=1
+加拿大|1|https://digitallibrary.un.org/search?ln=zh_CN&c=Speeches&rg=100&cc=Speeches&fct__7=Canada&fct__8=DISARMAMENT--GENERAL+AND+COMPLETE&jrec=1
+伊朗|1|https://digitallibrary.un.org/search?ln=zh_CN&c=Speeches&rg=100&cc=Speeches&fct__7=Iran%20(Islamic%20Republic%20of)&fct__8=DISARMAMENT--GENERAL+AND+COMPLETE&jrec=1
+以色列|1|https://digitallibrary.un.org/search?ln=zh_CN&c=Speeches&rg=100&cc=Speeches&fct__7=Israel&fct__8=DISARMAMENT--GENERAL+AND+COMPLETE&jrec=1
