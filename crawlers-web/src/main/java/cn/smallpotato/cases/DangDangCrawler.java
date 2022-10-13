@@ -4,6 +4,7 @@ import cn.smallpotato.common.http.HttpHelper;
 import cn.smallpotato.common.model.*;
 import cn.smallpotato.entity.Book;
 import cn.smallpotato.service.BookService;
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.commons.lang3.RandomUtils;
 import org.assertj.core.util.Maps;
 import org.jsoup.Jsoup;
@@ -33,7 +34,7 @@ public class DangDangCrawler extends AbstractCrawler<String, Book> {
         List<String> urls = new ArrayList<>();
         for (int i = 45; i < 55; i++) {
             String url = "http://category.dangdang.com/pg" + i + "-cp01.27.01.13.00.00.html";
-            String html = HttpHelper.doGet(url, String.class);
+            String html = HttpHelper.doGet(url, new TypeReference<String>() {});
             Document document = Jsoup.parse(html);
             Elements elements = document.select("#component_59 > li");
             for (org.jsoup.nodes.Element element : elements) {
@@ -130,7 +131,7 @@ public class DangDangCrawler extends AbstractCrawler<String, Book> {
                 throw new RuntimeException(e);
             }
             headers.put("User-Agent", userAgents[RandomUtils.nextInt(0, userAgents.length)]);
-            String html = HttpHelper.doGet(task, headers, String.class);
+            String html = HttpHelper.doGet(task, headers, new TypeReference<String>() {});
             Document document = Jsoup.parse(html);
             String name = document.select("#product_info > div.name_info > h1").text();
             String authorHtml = document.select("#author").toString();

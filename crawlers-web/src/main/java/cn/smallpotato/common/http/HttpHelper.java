@@ -1,5 +1,6 @@
 package cn.smallpotato.common.http;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
@@ -40,11 +41,11 @@ public class HttpHelper {
     private HttpHelper() {
     }
 
-    public static <T> T doGet(String url, Class<T> type) {
+    public static <T> T doGet(String url, TypeReference<T> type) {
         return doGet(url, Collections.emptyMap(), type);
     }
 
-    public static <T> T doGet(String url, Map<String, String> headers, Class<T> type) {
+    public static <T> T doGet(String url, Map<String, String> headers, TypeReference<T> type) {
         CloseableHttpClient httpClient = getClient();
         HttpGet httpGet = new HttpGet(url);
         setHeaders(headers, httpGet);
@@ -65,19 +66,19 @@ public class HttpHelper {
         }
     }
 
-    public static <T> T doPost(String url, Class<T> type) {
+    public static <T> T doPost(String url, TypeReference<T> type) {
         return doPost(url, Collections.emptyMap(), Collections.emptyMap(), type);
     }
 
-    public static <T> T doPost(String url, Map<String, String> headers, Class<T> type) {
+    public static <T> T doPost(String url, Map<String, String> headers, TypeReference<T> type) {
         return doPost(url, headers, Collections.emptyMap(), type);
     }
 
-    public static <T> T doPost(String url, Class<T> type, Map<String, String> params) {
+    public static <T> T doPost(String url, TypeReference<T> type, Map<String, String> params) {
         return doPost(url, Collections.emptyMap(), params, type);
     }
 
-    public static <T> T doPost(String url, Map<String, String> headers, Map<String, String> params, Class<T> type) {
+    public static <T> T doPost(String url, Map<String, String> headers, Map<String, String> params, TypeReference<T> type) {
         CloseableHttpClient httpClient = getClient();
         HttpPost httpPost = new HttpPost(url);
         setHeaders(headers, httpPost);
@@ -99,13 +100,10 @@ public class HttpHelper {
         }
     }
 
-    private static <T> T parseResult(CloseableHttpResponse response, Class<T> type) throws IOException {
+    private static <T> T parseResult(CloseableHttpResponse response, TypeReference<T> type) throws IOException {
         if (response.getStatusLine().getStatusCode() == STATUS_CODE_OK) {
             if (response.getEntity() != null) {
                 String content = EntityUtils.toString(response.getEntity(), "UTF-8");
-                if (String.class == type) {
-                    return (T) content;
-                }
                 return OBJECT_MAPPER.readValue(content, type);
             }
         }

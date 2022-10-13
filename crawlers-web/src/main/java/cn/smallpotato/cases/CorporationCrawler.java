@@ -3,6 +3,7 @@ package cn.smallpotato.cases;
 import cn.smallpotato.common.http.HttpHelper;
 import cn.smallpotato.common.model.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.assertj.core.util.Maps;
@@ -53,7 +54,7 @@ public class CorporationCrawler extends AbstractCrawler<String, Element.StringEl
             String url = "https://apps.sfc.hk/publicregWeb/searchByRaJson?_dc=1663234581536";
             params.put("nameStartLetter", prefix);
             List<Element.StringElement> list = new ArrayList<>();
-            Optional.of(HttpHelper.doPost(url, headers, params, String.class))
+            Optional.of(HttpHelper.doPost(url, headers, params, new TypeReference<String>() {}))
                     .ifPresent(content -> {
                         try {
                             JsonNode jsonNode = objectMapper.readTree(content);
