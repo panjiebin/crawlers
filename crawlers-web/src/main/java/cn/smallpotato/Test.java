@@ -13,7 +13,7 @@ public class Test {
 
     public static void main(String[] args) throws IOException {
         Map<String, Integer> tmp = get();
-        File file = new File("D:\\data4");
+        File file = new File("D:\\data");
         File[] files = file.listFiles();
         BufferedWriter writer = new BufferedWriter(new FileWriter("D:\\NATO.csv", true));
         for (File file1 : files) {
@@ -28,6 +28,9 @@ public class Test {
             while ((line = reader.readLine()) != null) {
                 if (StringUtils.isNotBlank(line)) {
                     line = line.trim().replace("&lt;", "");
+                    line = line.replace("&nbsp;", "");
+                    line = line.replace("p&gt;", "");
+                    line = line.replace("|", " ");
                     sb.append(line);
                     writer2.write(line);
                     writer2.newLine();
