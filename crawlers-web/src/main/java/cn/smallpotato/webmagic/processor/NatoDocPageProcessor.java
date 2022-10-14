@@ -1,20 +1,14 @@
 package cn.smallpotato.webmagic.processor;
 
 import cn.smallpotato.entity.NatoDoc;
-import cn.smallpotato.webmagic.pipeline.NatoDocFilePipeline;
-import cn.smallpotato.webmagic.pipeline.NatoDocFilePipeline2;
 import org.apache.commons.lang3.RandomUtils;
-import org.jetbrains.annotations.NotNull;
 import us.codecraft.webmagic.Page;
 import us.codecraft.webmagic.Site;
 import us.codecraft.webmagic.Spider;
 import us.codecraft.webmagic.processor.PageProcessor;
 import us.codecraft.webmagic.selector.Selectable;
 
-import java.io.File;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * @author panjb
@@ -85,7 +79,6 @@ public class NatoDocPageProcessor implements PageProcessor {
 
     public static void main(String[] args) {
         Spider.create(new NatoDocPageProcessor())
-                .addPipeline(new NatoDocFilePipeline2())
 //                .addUrl("https://www.nato.int/cps/en/natohq/official_texts_26621.htm?selectedLocale=en")
 //                .addPipeline(new NatoDocFilePipeline(cache))
 //                .addUrl("https://www.nato.int/cps/en/natohq/news_105470.htm?selectedLocale=en")
