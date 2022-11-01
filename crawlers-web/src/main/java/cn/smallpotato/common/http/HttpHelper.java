@@ -2,6 +2,7 @@ package cn.smallpotato.common.http;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.http.HttpEntity;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -14,8 +15,7 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -39,6 +39,42 @@ public class HttpHelper {
     }
 
     private HttpHelper() {
+    }
+
+    public static void downloadFile(String url, String filePath) {
+        CloseableHttpClient client = getClient();
+        HttpGet httpGet = new HttpGet(url);
+        FileOutputStream os = null;
+        InputStream is = null;
+        try {
+            CloseableHttpResponse response = client.execute(httpGet);
+            HttpEntity entity = response.getEntity();
+            File file = new File(filePath);
+            if (!file.getParentFile().exists()) {
+                file.getParentFile().mkdirs();
+            }
+            os = new FileOutputStream(file);
+            is = entity.getContent();
+            byte[] buffer = new byte[1024];
+            int ch;
+            while ((ch = is.read(buffer)) != -1) {
+                os.write(buffer, 0 ,ch);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                if (is != null) {
+                    is.close();
+                }
+                if (os != null) {
+                    os.flush();
+                    os.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     public static <T> T doGet(String url, TypeReference<T> type) {
